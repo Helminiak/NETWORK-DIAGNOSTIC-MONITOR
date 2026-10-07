@@ -39,6 +39,13 @@ does not establish damaged files or a network outage.
 
 ## Validation
 
+Repository migration adds separate test-harness corrections: native Windows
+process identity is no longer replaced by a Linux adapter; legitimate PARTIAL
+resource samples must keep absent OS counters null and explicitly unavailable;
+parser checks cover program/developer source rather than ignored settings and
+Node.js dependencies. These changes are tracked after the byte-exact RC3.1.1
+import, and CI generates fresh results for that Git commit.
+
 | Check | Result and limits |
 | --- | --- |
 | Complete self-test | **233 PASS**, exit 0, on Linux with PowerShell 7.4.6; Windows DPAPI is explicitly skipped |
@@ -51,10 +58,12 @@ does not establish damaged files or a network outage.
 | Portable classification contract | **7 PASS** state transitions; no native APIs or network |
 | Native Windows RC3.1.1 | **PENDING**; neither this fix nor the portable results certify Windows acceptance |
 
-Evidence is under `verification/selftestfix/`. The failure injection is declared
+Original evidence remains in the earlier RC3.1.1 archive; this Git checkout
+regenerates test evidence through CI and `verification/selftestfix/`. The failure injection is declared
 and isolated in a disposable copy; the delivered source retains the real probe.
-Earlier RC3.1 and RC3 verification directories are historical evidence, not
-current Windows passes. The exact previous RC3.1 archive is in `rollback/`.
+Earlier archived RC3.1 and RC3 verification results are historical evidence,
+not current Windows passes. The exact earlier archive remains a prior deliverable; `archive/rc3.1` and
+Git history preserve the selected source baseline.
 
 ## Rerun on the Windows sensor
 

@@ -1,0 +1,15 @@
+{
+  "name": "network-diagnostic-monitor-verification",
+  "version": "2.12.0-rc3.1.1",
+  "private": true,
+  "description": "Developer-only browser verification; the monitor has no Node.js runtime dependency.",
+  "scripts": {
+    "test:web": "node verification/test_web_status.cjs"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "playwright": "1.62.1"
+  }
+}

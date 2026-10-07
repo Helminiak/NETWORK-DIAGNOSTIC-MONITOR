@@ -24,7 +24,14 @@ function Invoke-MonitorSelfTest {
     $script:TestCount=0
     $root=Split-Path $PSScriptRoot -Parent
     . (Join-Path $PSScriptRoot 'Probes.ps1')
-    foreach($file in Get-ChildItem -LiteralPath $root -Recurse -File | Where-Object{$_.Extension -in @('.ps1','.psd1')}){
+    # Parse program/developer source, not ignored machine settings, build output
+    # or third-party node_modules that may use a different PowerShell version.
+    $sourceFiles=@(Get-ChildItem -LiteralPath $root -File)
+    foreach($folder in @('lib','verification','tools')){
+        $path=Join-Path $root $folder
+        if(Test-Path -LiteralPath $path){$sourceFiles+=@(Get-ChildItem -LiteralPath $path -Recurse -File)}
+    }
+    foreach($file in $sourceFiles | Where-Object{$_.Extension -in @('.ps1','.psd1')}){
         $tokens=$null;$errors=$null;[void][Management.Automation.Language.Parser]::ParseFile($file.FullName,[ref]$tokens,[ref]$errors)
         Assert-MonitorTest ($errors.Count -eq 0) ('Parser: '+$file.Name)
     }

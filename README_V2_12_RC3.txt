@@ -12,8 +12,9 @@ Read RC3_1_1_SelfTest_Fix.md for the diagnosis and validation limits.
 The October 4 run revealed public DNS names resolving to 10.0.0.1.
 RC3 now distinguishes DNS wire success from public-answer usability and blocks
 redirected named TCP connections before they can become false WAN evidence.
-Read Longtest_RC3_1_Audit.md for the October 5-7 audit and RC3.1 corrections.
-RC3_Log_Audit.md retains the earlier October 4 analysis.
+Detailed historical audits remain with the earlier archived deliverables.
+Read README.md and docs/source-control.md for this Git-managed source.
+The original per-file source hashes are recorded in SOURCE_IMPORT.json.
 RC3.1 fixes single-sample DNS confirmation, matched-query comparisons, and
 traceroute claims; adds bounded DNS TCP fallback, failure/advisory totals,
 process diagnostics, current PHY speed and honest HTTPS phase timings.

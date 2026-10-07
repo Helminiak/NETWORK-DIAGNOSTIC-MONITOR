@@ -42,7 +42,18 @@
     Assert-MonitorTest ($null -eq (Get-ProcessCpuDelta 90 $previous 2000) -and $null -eq (Get-ProcessCpuDelta 100 $previous 1000)) 'Reset and nonadvancing CPU samples remain unknown'
     $script:Clock=[pscustomobject]@{ElapsedMilliseconds=1000L}
     Update-ProcessResources -Reset;$sample=Get-ProcessResourceSnapshot
-    Assert-MonitorTest ($sample.status -eq 'OK' -and $sample.workingSetBytes -gt 0 -and $null -eq $sample.cpuPercentOneCore) 'Actual process resources are sampled without manufacturing initial CPU'
+    # Restricted environments can expose the managed heap while withholding OS
+    # counters. PARTIAL is a supported observation, provided each absent metric
+    # stays null and is explicitly declared unavailable.
+    $validResourceSample=$sample.status -in @('OK','PARTIAL') -and $sample.managedHeapBytes -gt 0 -and $null -eq $sample.cpuPercentOneCore
+    foreach($field in @(@{Name='workingSetBytes';Unavailable='WorkingSet'},@{Name='peakWorkingSetBytes';Unavailable='PeakWorkingSet'},@{Name='privateBytes';Unavailable='PrivateBytes'})){
+        $value=$sample.($field.Name)
+        if($null -eq $value){$validResourceSample=$validResourceSample -and $sample.unavailableFields -contains $field.Unavailable}
+        else{$validResourceSample=$validResourceSample -and $value -gt 0 -and $sample.unavailableFields -notcontains $field.Unavailable}
+    }
+    $validResourceSample=$validResourceSample -and (($sample.status -eq 'OK' -and @($sample.unavailableFields).Count -eq 0) -or ($sample.status -eq 'PARTIAL' -and @($sample.unavailableFields).Count -gt 0))
+    Assert-MonitorTest $validResourceSample 'Process resources retain managed heap and explicitly unknown OS counters without manufacturing initial CPU' -FailureDetails ($sample | ConvertTo-Json -Depth 4 -Compress)
+    Write-Host ('Process resource evidence: '+($sample | ConvertTo-Json -Depth 4 -Compress))
     $sample=Get-ProcessResourceSnapshot HISTORICAL
     Assert-MonitorTest ($sample.status -eq 'UNMEASURED' -and $null -eq $sample.workingSetBytes) 'Historical replay cannot inherit the replay process RAM'
     $script:Clock.ElapsedMilliseconds=92000;$sample=Get-ProcessResourceSnapshot

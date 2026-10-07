@@ -9,7 +9,7 @@ RC2. The October 5-7 longtest identifies RC3 and provides about 58h of native
 manual execution, one gap, graceful closure and one bounded pktmon capture.
 It does not provide a code hash, native self-test/startup/reboot evidence,
 process resource trends, or a complete 72h gate. All RC3.1 edits still need
-native Windows acceptance; portable evidence is in verification/longtest/.
+native Windows acceptance; portable evidence is in the original archived deliverable and current CI artifacts.
 
 | Gate | Required observed behavior | Current evidence |
 | --- | --- | --- |

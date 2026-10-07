@@ -18,9 +18,11 @@ function Get-SensorContext {
 }
 '@
     [IO.File]::AppendAllText((Join-Path $source 'lib/Runtime.ps1'),"`n"+$runtime)
-    # This container cannot expose Process.StartTime. This substitution is isolated
-    # and declared; real Windows PID/start-time validation remains untested.
-    [IO.File]::AppendAllText((Join-Path $source 'lib/Deployment.ps1'),"`nfunction Get-ProcessStartIdentity {param([int]`$ProcessId=`$PID);return 'INTEGRATION_START_ADAPTER'}`n")
+    # The portable Linux container cannot expose Process.StartTime. Keep this
+    # declared adapter limited to Linux; Windows exercises native PID/start identity.
+    if([Environment]::OSVersion.Platform -ne [PlatformID]::Win32NT){
+        [IO.File]::AppendAllText((Join-Path $source 'lib/Deployment.ps1'),"`nfunction Get-ProcessStartIdentity {param([int]`$ProcessId=`$PID);return 'INTEGRATION_START_ADAPTER'}`n")
+    }
     $probe=@'
 function Invoke-ProbeFamily {
     $target=[pscustomobject]@{Name='Default-Gateway';Provider='Local'}

@@ -1,5 +1,5 @@
 const fs=require('fs'),path=require('path'),net=require('net'),os=require('os'),assert=require('assert'),{spawn}=require('child_process');
-const {chromium}=require(process.env.CODEX_PRIMARY_RUNTIME_NODE_MODULES+'/playwright');
+const {chromium}=process.env.NETDIAG_TEST_NODE_MODULES?require(process.env.NETDIAG_TEST_NODE_MODULES+'/playwright'):require('playwright');
 const root=path.resolve(__dirname,'..'),port=19763,url='http://127.0.0.1:'+port;
 const pwsh=process.env.NETDIAG_TEST_PWSH, chrome=process.env.NETDIAG_TEST_CHROME;
 if(!pwsh||!chrome) throw Error('Set NETDIAG_TEST_PWSH and NETDIAG_TEST_CHROME to installed local test runtimes.');
@@ -15,7 +15,7 @@ async function raw(request){return new Promise((resolve,reject)=>{const s=net.co
  let ready=false;for(let i=0;i<100;i++){await wait(100);try{const r=await fetch(url+'/api/status');const initial=await r.json();if(r.ok && initial.network){ready=true;break;}}catch{}if(child.exitCode!==null) throw Error('fixture exited: '+stderr);}
  pass('Actual C# loopback server starts',ready);
  const response=await fetch(url+'/api/status'),state=await response.json();
- pass('Real archived status JSON served with monotonic snapshot age',state.schemaVersion===1 && state.network.code==='DNS_ANSWER_REDIRECTION' && state.snapshotAgeMs>=0);
+ pass('Synthetic historical status JSON served with monotonic snapshot age',state.schemaVersion===1 && state.network.code==='DNS_ANSWER_REDIRECTION' && state.snapshotAgeMs>=0);
  pass('Read-only headers prevent caching, embedding and script injection',response.headers.get('cache-control')==='no-store' && response.headers.get('x-frame-options')==='DENY' && response.headers.get('content-security-policy').includes("script-src 'self'"));
  pass('No cross-origin read permission',!response.headers.has('access-control-allow-origin'));
  pass('POST API rejected',(await fetch(url+'/api/status',{method:'POST'})).status===405);
@@ -31,7 +31,7 @@ async function raw(request){return new Promise((resolve,reject)=>{const s=net.co
  const page=await browser.newPage({viewport:{width:1440,height:1100},timezoneId:'America/New_York'}),errors=[],external=[];
  page.on('pageerror',e=>errors.push(e.message));page.on('request',r=>{if(!r.url().startsWith(url))external.push(r.url());});
  await page.goto(url);await page.waitForFunction(()=>document.getElementById('assessment-title').textContent.includes('private addresses'));
- pass('Browser renders the actual archived DNS anomaly',(await page.locator('#dns-detail').textContent()).includes('flagged'));
+ pass('Browser renders the synthetic DNS integrity anomaly',(await page.locator('#dns-detail').textContent()).includes('flagged'));
  pass('Older archives do not manufacture monitor process measurements',(await page.locator('#monitor-memory').textContent())==='Unmeasured or stale');
  pass('Historical replay is visibly labelled',(await page.locator('#connection').textContent()).includes('Historical'));
  pass('Unresolved shutdown remains visible',(await page.locator('#incident-detail').textContent()).includes('unresolved'));
@@ -58,6 +58,6 @@ async function raw(request){return new Promise((resolve,reject)=>{const s=net.co
  pass('Stopped backend visibly becomes unavailable',(await page.locator('#probe-status').textContent())==='Unavailable');
  pass('Unresolved incident survives loss of the backend',(await page.locator('#incident-detail').textContent()).includes('No recovery'));
  pass('Page has no JavaScript errors',errors.length===0);pass('Page loads no remote assets',external.length===0);
- checks.push('WEB / GUI PASSED: '+count+' checks. Actual C# server and headless Chromium; historical log fixture and synthetic stale/injection cases.');console.log(checks.at(-1));
+ checks.push('WEB / GUI PASSED: '+count+' checks. Actual C# server and headless Chromium; synthetic historical/stale/injection fixtures.');console.log(checks.at(-1));
  }finally{if(browser)await browser.close();if(child&&child.exitCode===null)child.kill('SIGTERM');fs.rmSync(fixture,{recursive:true,force:true});fs.writeFileSync(path.join(__dirname,'web-status-tests.txt'),checks.join('\n')+'\n'+(stderr?'Fixture stderr: '+stderr:''));}
 })().catch(e=>{console.error(e);process.exitCode=1;});
