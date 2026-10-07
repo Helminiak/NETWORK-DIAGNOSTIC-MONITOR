@@ -19,10 +19,16 @@ $script:CaptureWorker=$null;$script:EvidenceWorker=$null;$script:Cancel=[hashtab
 $script:FatalErrorMessage=$null;$script:CaptureNextMs=0L;$script:FailureExit=0
 $script:Storage=$null;$script:StorageLock=$null;$script:LogPaths=@{};$script:Recorder=$null
 $script:Alerts=$null;$script:WebServer=$null
+$script:SelfTestTranscriptStarted=$false
 try{
     if(-not $ConfigPath){$ConfigPath=Join-Path $PSScriptRoot 'Monitor_Config.psd1'}
     foreach($library in @('Time','AddressPolicy','Core','Diagnostics','Resources','WebStatus','Scheduler','Continuity','Runtime','Storage','Notifications','Presentation','WindowsForensics','Deployment')){. (Join-Path $PSScriptRoot ('lib\'+$library+'.ps1'))}
-    if($SelfTest){. (Join-Path $PSScriptRoot 'lib\SelfTest.ps1');Invoke-MonitorSelfTest;exit 0}
+    if($SelfTest){
+        $testLog=Join-Path $PSScriptRoot 'Self_Test_Result.log'
+        try{Start-Transcript -LiteralPath $testLog -Force -ErrorAction Stop | Out-Null;$script:SelfTestTranscriptStarted=$true}catch{Write-Host ('Self-test transcript unavailable: '+$_.Exception.Message) -ForegroundColor Yellow}
+        Write-Host ('NETWORK DIAGNOSTIC MONITOR V2.12-RC3.1.1 SELF-TEST; PS='+$PSVersionTable.PSVersion+'; CLR='+[Environment]::Version+'; OS='+[Environment]::OSVersion.VersionString)
+        . (Join-Path $PSScriptRoot 'lib\SelfTest.ps1');Invoke-MonitorSelfTest;exit 0
+    }
     $script:Cfg=Read-MonitorConfig $ConfigPath
     if($LogRoot){$Cfg.RootDir=$LogRoot}
     $Cfg.RootDir=$ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($Cfg.RootDir)
@@ -57,14 +63,14 @@ try{
     # START schedules only after initialization; phase deadlines are relative to this epoch.
     $script:Scheduler=New-ProbeScheduler $Cfg (Join-Path $PSScriptRoot 'lib\Probes.ps1') $ctx $Queue $Clock
     if(-not $NoDashboard){
-        $Host.UI.RawUI.WindowTitle='Network Diagnostic Monitor V2.12-RC3.1 - '+$Cfg.SENSOR_NAME+' ['+$Cfg.SENSOR_ROLE+']'
+        $Host.UI.RawUI.WindowTitle='Network Diagnostic Monitor V2.12-RC3.1.1 - '+$Cfg.SENSOR_NAME+' ['+$Cfg.SENSOR_ROLE+']'
         Set-ConsolePresentation
         try{[Console]::CursorVisible=$false;[Console]::TreatControlCAsInput=$true}catch{}
     }
     # Console setup may take a second; start the phase epoch only when ready.
     $Clock.Restart()
     $script:Continuity=New-ContinuityState 0 ([datetime]::UtcNow)
-    Write-EventLog ('V2.12-RC3.1 started. SensorRole='+$Cfg.SENSOR_ROLE+'; Adapter='+$RouteInfo.AdapterName+'; Gateway='+$RouteInfo.Gateway+'; SystemDNS='+$RouteInfo.SystemDns) 'START'
+    Write-EventLog ('V2.12-RC3.1.1 started. SensorRole='+$Cfg.SENSOR_ROLE+'; Adapter='+$RouteInfo.AdapterName+'; Gateway='+$RouteInfo.Gateway+'; SystemDNS='+$RouteInfo.SystemDns) 'START'
     if($Cfg.SENSOR_ROLE -eq 'GENERIC' -and $Cfg.EnableBgwProbe){Write-EventLog 'CONFIGURATION: Generic sensor role intentionally disables explicit BGW management probes; configure role to BEHIND_ASUS only after verifying topology.' 'CONFIG_WARNING'}
     if($Alerts.Mode -in @('NOT_CONFIGURED','CONFIG_ERROR','STATE_ERROR')){Write-EventLog ('Pushover '+$Alerts.Mode+'. Run SETUP_PUSHOVER.bat under the same Windows account; monitoring continues.') 'NOTIFICATION_SETUP'}
     if($Cfg.EnableWebStatus){
@@ -177,14 +183,18 @@ try{
 }catch{
     $script:FailureExit=1;$script:FatalErrorMessage=$_.Exception.Message
     $fatalPath=if($RunDir){Join-Path $RunDir 'Fatal_Error.log'}else{Join-Path $PSScriptRoot 'Fatal_Error.log'}
-    $fatalText='NETWORK DIAGNOSTIC MONITOR V2.12-RC3.1 - FATAL ERROR'+"`r`n"+'UTC='+[datetime]::UtcNow.ToString('o')+' Local='+[datetime]::Now.ToString('o')+' Sensor='+$(if($Cfg){$Cfg.SENSOR_NAME}else{$env:COMPUTERNAME})+' Role='+$(if($Cfg){$Cfg.SENSOR_ROLE}else{'CONFIG_NOT_LOADED'})+"`r`n"+($_ | Format-List * -Force | Out-String)+"`r`n"+$_.ScriptStackTrace
+    $failureKind=if($SelfTest){'SELF-TEST FAILURE'}else{'FATAL ERROR'}
+    $fatalText='NETWORK DIAGNOSTIC MONITOR V2.12-RC3.1.1 - '+$failureKind+"`r`n"+'UTC='+[datetime]::UtcNow.ToString('o')+' Local='+[datetime]::Now.ToString('o')+' PS='+$PSVersionTable.PSVersion+' CLR='+[Environment]::Version+' OS='+[Environment]::OSVersion.VersionString+' Sensor='+$(if($Cfg){$Cfg.SENSOR_NAME}else{$env:COMPUTERNAME})+' Role='+$(if($Cfg){$Cfg.SENSOR_ROLE}else{'CONFIG_NOT_LOADED'})+"`r`n"+($_ | Format-List * -Force | Out-String)+"`r`n"+$_.ScriptStackTrace
     if($fatalText.Length -gt 20000){$fatalText=$fatalText.Substring(0,20000)+"`r`n[Fatal details truncated at storage safety limit]"}
     try{if($Storage -and $RunDir){if(-not (Write-ManagedText $fatalPath $fatalText -Critical -Final)){throw 'Fatal log quota exhausted.'}}else{[IO.File]::WriteAllText($fatalPath,$fatalText,([Text.UTF8Encoding]::new($true)))}}catch{[Console]::Error.WriteLine('Fatal log write also failed: '+$_.Exception.Message)}
-    try{if($Writers.Count){Write-EventLog $script:FatalErrorMessage 'FATAL'}else{Receive-NotificationEvent 'FATAL' $script:FatalErrorMessage}}catch{}
-    try{[Console]::CursorVisible=$true;[Console]::SetCursorPosition(0,0)}catch{}
-    Write-Host '';Write-Host 'MONITOR STOPPED DUE TO A FATAL ERROR' -ForegroundColor Red
-    Write-Host $script:FatalErrorMessage -ForegroundColor Red;Write-Host ('Fatal error log: '+$fatalPath) -ForegroundColor Yellow
+    if(-not $SelfTest){try{if($Writers.Count){Write-EventLog $script:FatalErrorMessage 'FATAL'}else{Receive-NotificationEvent 'FATAL' $script:FatalErrorMessage}}catch{}}
+    # Self-tests print ordinary scrolling output. Rewinding to (0,0) overwrites
+    # earlier PASS lines without erasing their tails, corrupting copied paths.
+    try{[Console]::CursorVisible=$true;if(-not $SelfTest -and -not $NoDashboard){[Console]::SetCursorPosition(0,0)}}catch{}
+    Write-Host '';Write-Host $(if($SelfTest){'SELF-TEST STOPPED DUE TO A FAILED CHECK'}else{'MONITOR STOPPED DUE TO A FATAL ERROR'}) -ForegroundColor Red
+    Write-Host $script:FatalErrorMessage -ForegroundColor Red;Write-Host ($(if($SelfTest){'Self-test failure log: '}else{'Fatal error log: '})+$fatalPath) -ForegroundColor Yellow
 }finally{
+    if($script:SelfTestTranscriptStarted){try{Stop-Transcript | Out-Null}catch{}}
     if(-not $SelfTest){
         try{Stop-IdleSleepGuard}catch{$script:FailureExit=1}
         try{Stop-ProbeScheduler $Scheduler}catch{Write-Host ('Worker shutdown error: '+$_.Exception.Message) -ForegroundColor Red}

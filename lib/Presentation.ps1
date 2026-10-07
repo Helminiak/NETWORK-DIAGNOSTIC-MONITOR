@@ -362,7 +362,7 @@ function Render-Dashboard {
     }
 
     Write-Host ($I + '========================================================================================================================') -ForegroundColor Cyan
-    Write-Host ($I + '                                       NETWORK DIAGNOSTIC MONITOR V2.12-RC3') -ForegroundColor Gray
+    Write-Host ($I + '                                       NETWORK DIAGNOSTIC MONITOR V2.12-RC3.1.1') -ForegroundColor Gray
     Write-Host ($I + '========================================================================================================================') -ForegroundColor Cyan
     Write-Host ($I + ('Started: {0}    Runtime: {1:dd\.hh\:mm\:ss}    Current: {2}' -f $StartTime,$runtime,(Get-Date -Format 'yyyy-MM-dd HH:mm:ss'))) -ForegroundColor Green
     Write-Host ($I + ('Adapter: {0}    Link: {1}    Default Gateway: {2}    System DNS: {3}' -f $RouteInfo.AdapterName,$RouteInfo.LinkSpeed,$RouteInfo.Gateway,$RouteInfo.SystemDns)) -ForegroundColor Green

@@ -1,6 +1,9 @@
-# RC3.1 native acceptance record
+# RC3.1.1 native acceptance record
 
-RC3.1 is a candidate. Portable tests/replay are evidence for specific logic, not a
+RC3.1.1 is a candidate. The user reported a native RC3.1 refused-socket self-test
+failure; its correction and current portable evidence are recorded in
+RC3_1_1_SelfTest_Fix.md and verification/selftestfix/. Native RC3.1.1 remains
+pending. Portable tests/replay are evidence for specific logic, not a
 substitute for the Windows or router runs below. The October 4 upload came from
 RC2. The October 5-7 longtest identifies RC3 and provides about 58h of native
 manual execution, one gap, graceful closure and one bounded pktmon capture.
@@ -10,7 +13,7 @@ native Windows acceptance; portable evidence is in verification/longtest/.
 
 | Gate | Required observed behavior | Current evidence |
 | --- | --- | --- |
-| W01: Windows 5.1 parse/self-test | Full extracted RC3 passes under native Windows PowerShell 5.1; no ambient mocks | Portable 7.4.6 suite passed; native RC3 NOT RUN |
+| W01: Windows 5.1 parse/self-test | Full extracted current candidate passes under native Windows PowerShell 5.1; no ambient mocks | User's RC3.1 Windows launcher FAILED at actual-refusal assertion; RC3.1.1 portable suite: 233 PASS, DPAPI skipped; native RC3.1.1 PENDING |
 | W02: healthy execution | All enabled native families advance at configured cadence; no healthy probe/Health/Scheduler CSV by default | RC2 real run has 4,602 ICMP/DNS sweeps and zero skips for those families; RC3 stubbed integration passed; native RC3 NOT RUN |
 | W03: topology | Verified role/gateway/interface/DNS; deliberate route, VPN/default metric and DNS changes become warnings; no false ownership; BGW probes only for verified role | RC2 GENERIC correctly disables explicit BGW; RC3 native change detection NOT RUN |
 | W04: hidden launch/startup | Background start opens local page without retained console; browser close preserves child; reopen works; correct-account task survives reboot before desktop login | Source/server checks passed; native launch/task/reboot NOT RUN |

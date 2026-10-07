@@ -1,7 +1,18 @@
 ﻿function Assert-MonitorTest {
-    param([bool]$Condition,[string]$Name)
-    if(-not $Condition){throw ('SELF-TEST FAILED: '+$Name)}
+    param([bool]$Condition,[string]$Name,[string]$FailureDetails='')
+    if(-not $Condition){throw ('SELF-TEST FAILED: '+$Name+$(if($FailureDetails){"`r`n"+$FailureDetails}))}
     $script:TestCount++;Write-Host ('PASS '+$Name) -ForegroundColor Green
+}
+
+function New-RefusedTcpTestSocket {
+    # Reserve a loopback port WITHOUT listening. Keeping the socket bound
+    # prevents another process from taking the port between setup and connect.
+    $socket=[Net.Sockets.Socket]::new([Net.Sockets.AddressFamily]::InterNetwork,[Net.Sockets.SocketType]::Stream,[Net.Sockets.ProtocolType]::Tcp)
+    try{
+        $socket.ExclusiveAddressUse=$true
+        $socket.Bind([Net.IPEndPoint]::new([Net.IPAddress]::Loopback,0))
+        return $socket
+    }catch{$socket.Dispose();throw}
 }
 
 function New-TestObservation {
@@ -169,9 +180,11 @@ public sealed class MonitorDnsFixture : IDisposable {
     }finally{$fixture.Dispose()}
     $fixture=[MonitorDnsFixture]::new();$fixture.CloseTcp=$true
     try{$result=Invoke-DnsQuery '127.0.0.1' 'example.com' 700 -Tcp -Port $fixture.TcpPort;Assert-MonitorTest ($result.Status -eq 'FAIL' -and $result.Ms -lt 650) 'Premature DNS TCP EOF rejected'}finally{$fixture.Dispose()}
-    $closed=[Net.Sockets.TcpListener]::new([Net.IPAddress]::Loopback,0);$closed.Start();$closedPort=$closed.LocalEndpoint.Port;$closed.Stop()
-    $result=Invoke-TcpProbe '127.0.0.1' $closedPort '127.0.0.1' 200 300
-    Assert-MonitorTest ($result.TcpAttempted -and $result.Stage -in @('TCP_ERROR','TCP_TIMEOUT')) 'Closed TCP port is a connect failure with DNS bypassed'
+    $closed=New-RefusedTcpTestSocket;$closedPort=$closed.LocalEndPoint.Port
+    try{
+        $result=Invoke-TcpProbe '127.0.0.1' $closedPort '127.0.0.1' 200 300
+        Assert-MonitorTest ($result.TcpAttempted -and $result.Stage -in @('TCP_ERROR','TCP_TIMEOUT')) 'Closed TCP port is a connect failure with DNS bypassed' -FailureDetails ($result | ConvertTo-Json -Depth 6 -Compress)
+    }finally{$closed.Dispose()}
     $listener=[Net.Sockets.TcpListener]::new([Net.IPAddress]::Loopback,0);$listener.Start()
     try{$result=Invoke-TcpProbe '127.0.0.1' $listener.LocalEndpoint.Port '127.0.0.1' 200 700;Assert-MonitorTest ($result.TcpAttempted -and $result.Status -eq 'OK') 'Loopback TCP listener confirms a real successful connect'}finally{$listener.Stop()}
     $result=Invoke-TcpProbe 'example.com' $closedPort '127.0.0.1' 200 300

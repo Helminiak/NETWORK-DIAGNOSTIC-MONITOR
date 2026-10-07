@@ -287,7 +287,7 @@ function Write-AtomicText {
 function Write-RunSummary {
     param([string]$Kind='LIVE')
     $utc=[datetime]::UtcNow;$lines=New-Object 'System.Collections.Generic.List[string]'
-    $lines.Add('NETWORK DIAGNOSTIC MONITOR V2.12-RC3.1 - '+$Kind+' SUMMARY')
+    $lines.Add('NETWORK DIAGNOSTIC MONITOR V2.12-RC3.1.1 - '+$Kind+' SUMMARY')
     $lines.Add(('Sensor: {0} Role: {1} Run: {2}' -f $Cfg.SENSOR_NAME,$Cfg.SENSOR_ROLE,$RunId))
     $lines.Add(('Started UTC: {0} Local: {1}' -f $StartTime.ToUniversalTime().ToString('o'),$StartTime.ToString('o')))
     $lines.Add(('Updated UTC: {0} Local: {1} MonotonicMs: {2}' -f $utc.ToString('o'),$utc.ToLocalTime().ToString('o'),$Clock.ElapsedMilliseconds))

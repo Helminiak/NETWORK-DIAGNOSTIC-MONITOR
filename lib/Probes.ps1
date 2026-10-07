@@ -16,10 +16,20 @@ function Publish-Probe {
 
 function Get-ProbeExceptionDetails {
     param([Exception]$Exception)
-    $cause=$Exception.GetBaseException()
+    # Walk the actual inner chain: GetBaseException can be overridden by a
+    # wrapper. Stop at the socket exception so its native code is retained.
+    $cause=$Exception;$types=New-Object 'Collections.Generic.List[string]'
+    $seen=New-Object 'Collections.Generic.List[Exception]';$truncated=$false
+    for($i=0;$i -lt 32;$i++){
+        if($seen.Contains($cause)){$truncated=$true;break}
+        $seen.Add($cause);$types.Add($cause.GetType().FullName)
+        if($cause -is [Net.Sockets.SocketException] -or $null -eq $cause.InnerException){break}
+        if($i -eq 31){$truncated=$true;break}
+        $cause=$cause.InnerException
+    }
     $message=($cause.Message -replace '[\r\n\t]',' ')
     if($message.Length -gt 256){$message=$message.Substring(0,256)}
-    [pscustomobject]@{type=$cause.GetType().FullName;message=$message;socketError=if($cause -is [Net.Sockets.SocketException]){[string]$cause.SocketErrorCode}else{$null};nativeErrorCode=if($cause -is [Net.Sockets.SocketException]){$cause.NativeErrorCode}else{$null}}
+    [pscustomobject]@{type=$cause.GetType().FullName;message=$message;socketError=if($cause -is [Net.Sockets.SocketException]){[string]$cause.SocketErrorCode}else{$null};nativeErrorCode=if($cause -is [Net.Sockets.SocketException]){$cause.NativeErrorCode}else{$null};wrapperType=$Exception.GetType().FullName;exceptionTypes=$types.ToArray();chainTruncated=$truncated}
 }
 
 function Read-DnsName {

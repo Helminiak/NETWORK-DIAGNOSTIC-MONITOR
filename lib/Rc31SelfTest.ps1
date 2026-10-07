@@ -78,7 +78,21 @@
     Assert-MonitorTest ($null -eq (Get-CurlPhaseMs 0.04 0.01)) 'Nonmonotonic curl timestamps produce unknown phase latency rather than a clamped zero'
     Assert-MonitorTest ($null -eq (Get-CurlPhaseMs 0.04 0) -and $null -eq (Get-CurlPhaseMs 0 0.1 -RequireStart)) 'Uncompleted curl phase timestamps remain unknown'
     Assert-MonitorTest ((Get-CurlPhaseMs 0.01 0.04) -eq 30) 'Comparable curl timestamps preserve the measured phase duration'
-    $listener=[Net.Sockets.TcpListener]::new([Net.IPAddress]::Loopback,0);$listener.Start();$port=$listener.LocalEndpoint.Port;$listener.Stop()
-    $result=Invoke-TcpProbe '127.0.0.1' $port '' 500 500
-    Assert-MonitorTest ($result.Stage -eq 'TCP_ERROR' -and $result.Error.socketError -eq 'ConnectionRefused' -and $null -ne $result.Error.nativeErrorCode) 'Actual refused socket retains its native error instead of a generic TCP label'
+    # Test error extraction independently of OS connection-completion timing.
+    $native=[Net.Sockets.SocketException]::new([int][Net.Sockets.SocketError]::ConnectionRefused)
+    $wrapped=[Management.Automation.MethodInvocationException]::new('PowerShell invocation wrapper',[Reflection.TargetInvocationException]::new($native))
+    $details=Get-ProbeExceptionDetails $wrapped
+    Assert-MonitorTest ($details.type -eq 'System.Net.Sockets.SocketException' -and $details.socketError -eq 'ConnectionRefused' -and $details.nativeErrorCode -eq $native.NativeErrorCode) 'Nested invocation wrappers retain the actual socket error and native platform code' -FailureDetails ($details | ConvertTo-Json -Depth 4 -Compress)
+    $details=Get-ProbeExceptionDetails ([TimeoutException]::new("Deadline expired`r`nNo native socket error"))
+    Assert-MonitorTest ($details.type -eq 'System.TimeoutException' -and $null -eq $details.socketError -and $null -eq $details.nativeErrorCode -and $details.message -notmatch '[\r\n\t]') 'A deadline exception never invents a native connection refusal'
+    # The short-deadline test above permits TCP_TIMEOUT. This check must instead
+    # wait for the OS refusal, including Windows connection-completion delay.
+    # The larger deadline belongs to this self-test only, not live probes.
+    $closed=New-RefusedTcpTestSocket;$port=$closed.LocalEndPoint.Port;$deadlineMs=5000
+    try{
+        $result=Invoke-TcpProbe '127.0.0.1' $port '' 500 $deadlineMs
+        $failureDetails='Loopback='+"127.0.0.1:$port"+'; DeadlineMs='+$deadlineMs+'; PS='+$PSVersionTable.PSVersion+'; CLR='+[Environment]::Version+'; OS='+[Environment]::OSVersion.VersionString+"`r`n"+'Actual probe: '+($result | ConvertTo-Json -Depth 6 -Compress)
+        Assert-MonitorTest ($result.Status -eq 'FAIL' -and $result.TcpAttempted -and $result.Stage -eq 'TCP_ERROR' -and $result.Error.type -eq 'System.Net.Sockets.SocketException' -and $result.Error.socketError -eq 'ConnectionRefused' -and $null -ne $result.Error.nativeErrorCode) 'Actual refused socket retains its native error instead of a generic TCP label' -FailureDetails $failureDetails
+        Write-Host ('Loopback refusal evidence: '+($result | ConvertTo-Json -Depth 6 -Compress))
+    }finally{$closed.Dispose()}
 }

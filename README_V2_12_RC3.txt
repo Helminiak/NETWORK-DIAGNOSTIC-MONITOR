@@ -1,5 +1,13 @@
-﻿NETWORK DIAGNOSTIC MONITOR V2.12-RC3.1
+﻿NETWORK DIAGNOSTIC MONITOR V2.12-RC3.1.1
 Windows candidate / local network-status GUI / Merlin fork preparation
+
+RC3.1.1 corrects the refused-socket self-test: it reserves a closed local port
+and allows up to 5 seconds for the OS refusal, keeping live probe deadlines
+unchanged. Nested socket errors retain their native codes and wrapper types.
+Self-tests save Self_Test_Result.log, including actual refusal evidence. A
+failure keeps exit code 1 and Fatal_Error.log, with the actual result and runtime.
+Self-test errors now scroll normally instead of overwriting previous PASS lines.
+Read RC3_1_1_SelfTest_Fix.md for the diagnosis and validation limits.
 
 The October 4 run revealed public DNS names resolving to 10.0.0.1.
 RC3 now distinguishes DNS wire success from public-answer usability and blocks
