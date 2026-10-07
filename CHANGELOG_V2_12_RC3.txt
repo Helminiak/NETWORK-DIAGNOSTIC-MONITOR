@@ -1,0 +1,29 @@
+V2.12-RC3 - evidence-driven changes from RC2
+
+- Detect public-name nonpublic DNS answers independently of wire success.
+- Block redirected named TCP socket attempts and separate policy/transport counters.
+- Add first-in-sweep Cloudflare/Google public-IP TCP443 controls.
+- Preserve DNS transport recovery identity; surface selective TCP53 failure.
+- Exclude historical private-IP connections from WAN corroboration; avoid WAN
+  confirmation when fresh answer-integrity anomalies contaminate named probes.
+- Keep redirected successful replies from satisfying recovery.
+- Require DNS A-record owners to match the question or a bounded CNAME chain.
+- Retain addresses/answer policy in DNS CSV and structured event evidence.
+- Keep external curl startup/runtime failures as explicit unavailable observations.
+- Change ordinary HTTPS sampling to HEAD headers and record method/scope, reducing
+  self-generated traffic; keep DoH endpoint GET with a size guard.
+- Add read-only loopback status server, versioned portable JSON and responsive
+  network map/evidence UI; explicitly label unknown/stale/unresolved states.
+- Add START_BACKGROUND, OPEN_STATUS and STOP_BACKGROUND supervised actions.
+- Calculate interface delta Mbps, reset/gap/baseline handling and bounded history.
+- Detect selected/effective route or automatic DNS configuration changes.
+- Preserve readable partial traces and separate ring expiry/capacity evictions.
+- Use monotonic rolling-stat windows; remove blanket Microsoft exclusion from
+  genuinely multi-provider HTTPS transport evidence.
+- Add recorded replay, new semantic regressions, actual server/GUI checks and
+  schema validation. Preserve RC2 and RC1 rollback archives.
+- Include read-only Merlin capability checker and add-on fork architecture.
+
+Candidate boundaries: Windows 5.1/native launch/reboot/soak remain unverified for
+RC3. Router engine and authenticated Merlin WebUI integration are future work.
+DoH remains endpoint timing. No packet-content decoding or ISP ownership claim.
