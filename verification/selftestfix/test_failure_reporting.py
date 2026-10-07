@@ -26,7 +26,7 @@ def check(condition, name):
 
 with tempfile.TemporaryDirectory(prefix="netdiag-selftest-failure-") as temp:
     copy = Path(temp) / "Source"
-    shutil.copytree(root, copy, ignore=shutil.ignore_patterns("rollback"))
+    shutil.copytree(root, copy, ignore=shutil.ignore_patterns("rollback", ".git", "node_modules", "local", "logs", "dist", "artifacts"))
     test_path = copy / "lib" / "Rc31SelfTest.ps1"
     source = test_path.read_text(encoding="utf-8-sig")
     needle = "$result=Invoke-TcpProbe '127.0.0.1' $port '' 500 $deadlineMs"
@@ -34,6 +34,10 @@ with tempfile.TemporaryDirectory(prefix="netdiag-selftest-failure-") as temp:
     replacement = "$result=@{Status='FAIL';Stage='TCP_TIMEOUT';TcpAttempted=$true;Ms=5000;Error=$null;IP='127.0.0.1';Port=$port;HostName='127.0.0.1'}"
     test_path.write_text(source.replace(needle, replacement), encoding="utf-8-sig")
     env = dict(os.environ, POWERSHELL_TELEMETRY_OPTOUT="1", POWERSHELL_UPDATECHECK="Off")
+    # This process is independent of Test-Candidate.ps1, which only supplies the
+    # fallback inside its own child environment. Unix runners have no COMPUTERNAME.
+    if not env.get("COMPUTERNAME"):
+        env["COMPUTERNAME"] = "CI_SYNTHETIC_SENSOR"
     completed = subprocess.run(
         [str(runtime), "-NoLogo", "-NoProfile", "-File", str(copy / "Network_Diagnostic_V2_12_RC3.ps1"), "-SelfTest"],
         env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, timeout=90,

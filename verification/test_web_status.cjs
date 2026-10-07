@@ -6,14 +6,22 @@ if(!pwsh||!chrome) throw Error('Set NETDIAG_TEST_PWSH and NETDIAG_TEST_CHROME to
 const fixture=fs.mkdtempSync(path.join(os.tmpdir(),'netdiag-web-')),file=path.join(fixture,'status.json');
 const historical=JSON.parse(fs.readFileSync(path.join(__dirname,'historical-status.json'),'utf8'));
 fs.writeFileSync(file,JSON.stringify(historical));
-let child,browser,count=0,stderr='',checks=[];
+let child,browser,count=0,stderr='',stdout='',startupError='',checks=[];
 function pass(name,condition){assert(condition,name);checks.push('PASS '+name);console.log('PASS '+name);count++;}
 const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 async function raw(request){return new Promise((resolve,reject)=>{const s=net.connect(port,'127.0.0.1');let out='';s.setTimeout(4500);s.on('connect',()=>s.end(request));s.on('data',b=>out+=b);s.on('end',()=>resolve(out));s.on('error',reject);s.on('timeout',()=>{s.destroy();reject(Error('timeout'));});});}
 (async()=>{try{
- child=spawn(pwsh,['-NoLogo','-NoProfile','-File',path.join(__dirname,'fixtures','Serve_Status_Fixture.ps1'),'-StatusFile',file,'-Port',String(port),'-DurationSec','90'],{env:{...process.env,POWERSHELL_TELEMETRY_OPTOUT:'1',POWERSHELL_UPDATECHECK:'Off'}});child.stderr.on('data',b=>stderr+=b);
- let ready=false;for(let i=0;i<100;i++){await wait(100);try{const r=await fetch(url+'/api/status');const initial=await r.json();if(r.ok && initial.network){ready=true;break;}}catch{}if(child.exitCode!==null) throw Error('fixture exited: '+stderr);}
- pass('Actual C# loopback server starts',ready);
+ child=spawn(pwsh,['-NoLogo','-NoProfile','-File',path.join(__dirname,'fixtures','Serve_Status_Fixture.ps1'),'-StatusFile',file,'-Port',String(port),'-DurationSec','90'],{env:{...process.env,POWERSHELL_TELEMETRY_OPTOUT:'1',POWERSHELL_UPDATECHECK:'Off'}});
+ child.stderr.on('data',b=>stderr+=b);child.stdout.on('data',b=>stdout+=b);child.on('error',e=>startupError=e.message);
+ // Cold PowerShell/Add-Type startup varies by runner. Bound both startup and
+ // each HTTP attempt, and preserve the real reason instead of an empty timeout.
+ let ready=false,lastAttempt='No HTTP response';const deadline=Date.now()+30000;
+ while(Date.now()<deadline){
+  if(startupError || child.exitCode!==null) throw Error('Fixture startup failed: '+startupError+' exit='+child.exitCode+'\n'+stdout+'\n'+stderr);
+  try{const r=await fetch(url+'/api/status',{signal:AbortSignal.timeout(2000)});const initial=await r.json();lastAttempt='HTTP '+r.status+' '+JSON.stringify(initial).slice(0,500);if(r.ok && initial.network){ready=true;break;}}catch(e){lastAttempt=e.stack||String(e);}
+  await wait(100);
+ }
+ pass('Actual C# loopback server starts: '+(ready?'ready':lastAttempt+'\n'+stdout+'\n'+stderr),ready);
  const response=await fetch(url+'/api/status'),state=await response.json();
  pass('Synthetic historical status JSON served with monotonic snapshot age',state.schemaVersion===1 && state.network.code==='DNS_ANSWER_REDIRECTION' && state.snapshotAgeMs>=0);
  pass('Read-only headers prevent caching, embedding and script injection',response.headers.get('cache-control')==='no-store' && response.headers.get('x-frame-options')==='DENY' && response.headers.get('content-security-policy').includes("script-src 'self'"));
@@ -59,5 +67,5 @@ async function raw(request){return new Promise((resolve,reject)=>{const s=net.co
  pass('Unresolved incident survives loss of the backend',(await page.locator('#incident-detail').textContent()).includes('No recovery'));
  pass('Page has no JavaScript errors',errors.length===0);pass('Page loads no remote assets',external.length===0);
  checks.push('WEB / GUI PASSED: '+count+' checks. Actual C# server and headless Chromium; synthetic historical/stale/injection fixtures.');console.log(checks.at(-1));
- }finally{if(browser)await browser.close();if(child&&child.exitCode===null)child.kill('SIGTERM');fs.rmSync(fixture,{recursive:true,force:true});fs.writeFileSync(path.join(__dirname,'web-status-tests.txt'),checks.join('\n')+'\n'+(stderr?'Fixture stderr: '+stderr:''));}
-})().catch(e=>{console.error(e);process.exitCode=1;});
+ }finally{if(browser)await browser.close();if(child&&child.exitCode===null)child.kill('SIGTERM');fs.rmSync(fixture,{recursive:true,force:true});fs.writeFileSync(path.join(__dirname,'web-status-tests.txt'),checks.join('\n')+'\nFixture stdout: '+stdout+'\nFixture stderr: '+stderr+'\n'+(startupError?'Fixture startup error: '+startupError+'\n':''));}
+})().catch(e=>{console.error(e);fs.appendFileSync(path.join(__dirname,'web-status-tests.txt'),'Test failure: '+(e.stack||String(e))+'\n');process.exitCode=1;});
