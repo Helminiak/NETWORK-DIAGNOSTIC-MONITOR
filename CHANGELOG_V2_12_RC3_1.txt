@@ -1,0 +1,11 @@
+V2.12-RC3.1 — 2026-10-07
+
+- Separate success/failure confirmation clocks; a new success cannot confirm an old failure.
+- Match proxy/direct DNS query name and transport, preserve UDP/TCP fault identity.
+- Bounded TCP fallback for truncated named-TCP DNS resolution; validate fallback answers.
+- Preserve native socket details, cumulative failure stages, fallback and advisory counts.
+- Sample process CPU/RAM every 30 seconds; null for unavailable/stale/historical counters.
+- Show fresh NIC PHY speed; retain raw curl timestamps and unknown phase latency.
+- Label traceroute reply changes as observations; require a numbered destination reply.
+- Add portable JSON DNS state vectors for a future Merlin backend.
+- Include exact prior RC3 rollback package. See Longtest_RC3_1_Audit.md.

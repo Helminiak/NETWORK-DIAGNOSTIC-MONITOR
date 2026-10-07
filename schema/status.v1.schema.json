@@ -1,0 +1,420 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:netdiag:status:v1",
+  "title": "Network Diagnostic Monitor portable read-only status v1",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "programVersion",
+    "generatedUtc",
+    "monoMs",
+    "lifecycle",
+    "sensor",
+    "network",
+    "monitor",
+    "topology",
+    "traffic",
+    "probes",
+    "scheduler",
+    "recentEvents",
+    "limitations"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "programVersion": {
+      "type": "string"
+    },
+    "generatedUtc": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "monoMs": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "snapshotAgeMs": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "lifecycle": {
+      "enum": [
+        "RUNNING",
+        "STOPPED",
+        "HISTORICAL"
+      ]
+    },
+    "sensor": {
+      "type": "object",
+      "required": [
+        "name",
+        "role",
+        "adapter",
+        "gateway",
+        "systemDns"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "role": {
+          "type": "string"
+        },
+        "adapter": {
+          "type": "string"
+        },
+        "gateway": {
+          "type": "string"
+        },
+        "systemDns": {
+          "type": "string"
+        },
+        "linkSpeed": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "network": {
+      "type": "object",
+      "required": [
+        "code",
+        "severity",
+        "text",
+        "activeIncident",
+        "scope",
+        "unresolvedAtStop",
+        "answerAnomalyCount"
+      ],
+      "properties": {
+        "code": {
+          "type": "string"
+        },
+        "severity": {
+          "type": "string"
+        },
+        "text": {
+          "type": "string"
+        },
+        "activeIncident": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "scope": {
+          "enum": [
+            "SENSOR_PATH",
+            "ROUTER_PATH"
+          ]
+        },
+        "unresolvedAtStop": {
+          "type": "boolean"
+        },
+        "recovered": {
+          "type": "boolean"
+        },
+        "answerAnomalyCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "returnedAddresses": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "monitor": {
+      "type": "object",
+      "required": [
+        "probes"
+      ],
+      "properties": {
+        "resources": {
+          "type": "object",
+          "required": [
+            "status",
+            "scope",
+            "cpuPercentOneCore",
+            "workingSetBytes"
+          ],
+          "properties": {
+            "status": {
+              "enum": [
+                "OK",
+                "UNAVAILABLE",
+                "UNMEASURED",
+                "STALE",
+                "PARTIAL"
+              ]
+            },
+            "scope": {
+              "const": "MONITOR_PROCESS"
+            },
+            "cpuPercentOneCore": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "minimum": 0
+            },
+            "monoMs": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0
+            },
+            "ageMs": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0
+            },
+            "workingSetBytes": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0
+            },
+            "peakWorkingSetBytes": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0
+            },
+            "privateBytes": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0
+            },
+            "managedHeapBytes": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0
+            }
+          }
+        },
+        "advisories": {
+          "type": "array",
+          "maxItems": 128
+        },
+        "failureStages": {
+          "type": "array",
+          "maxItems": 128
+        }
+      }
+    },
+    "topology": {
+      "type": "object",
+      "required": [
+        "nodes",
+        "edges",
+        "inventoryComplete",
+        "lanClientCount",
+        "routerWanMeasured"
+      ],
+      "properties": {
+        "inventoryComplete": {
+          "type": "boolean"
+        },
+        "lanClientCount": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "routerWanMeasured": {
+          "type": "boolean"
+        },
+        "nodes": {
+          "type": "array",
+          "maxItems": 32,
+          "items": {
+            "type": "object",
+            "required": [
+              "id",
+              "label",
+              "kind",
+              "status",
+              "basis"
+            ]
+          }
+        },
+        "edges": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "object",
+            "required": [
+              "from",
+              "to",
+              "basis"
+            ]
+          }
+        }
+      }
+    },
+    "traffic": {
+      "type": "object",
+      "required": [
+        "scope",
+        "rxMbps",
+        "txMbps",
+        "routerWanRxMbps",
+        "routerWanTxMbps",
+        "history"
+      ],
+      "properties": {
+        "scope": {
+          "enum": [
+            "SENSOR_INTERFACE",
+            "ROUTER_WAN"
+          ]
+        },
+        "rxMbps": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "txMbps": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "routerWanRxMbps": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "routerWanTxMbps": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "history": {
+          "type": "array",
+          "maxItems": 120,
+          "items": {
+            "type": "object",
+            "required": [
+              "monoMs",
+              "rxMbps",
+              "txMbps"
+            ],
+            "properties": {
+              "monoMs": {
+                "type": "integer"
+              },
+              "rxMbps": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "txMbps": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "probes": {
+      "type": "array",
+      "maxItems": 1024,
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "protocol",
+          "name",
+          "scope",
+          "status",
+          "wireStatus",
+          "stage",
+          "ageMs",
+          "addresses",
+          "answerPolicy"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "protocol": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "scope": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "wireStatus": {
+            "type": "string"
+          },
+          "stage": {
+            "type": "string"
+          },
+          "ageMs": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "latencyMs": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "addresses": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "answerPolicy": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "scheduler": {
+      "type": "array"
+    },
+    "recentEvents": {
+      "type": "array",
+      "maxItems": 5,
+      "items": {
+        "type": "string"
+      }
+    },
+    "limitations": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}

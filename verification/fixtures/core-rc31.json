@@ -1,0 +1,426 @@
+{
+  "contractVersion": 1,
+  "purpose": "Portable DNS confirmation/recovery regression vectors for a future Merlin backend; no network calls.",
+  "config": {
+    "EvidenceEpochMs": 0,
+    "EvidenceWindowSec": 25,
+    "CorrelationWindowSec": 12,
+    "EventDebounceSec": 2,
+    "RecoveryHoldSec": 5,
+    "SENSOR_ROLE": "GENERIC",
+    "ExpectPublicDnsAnswers": true,
+    "AllowedPrivateDnsNames": []
+  },
+  "cases": [
+    {
+      "name": "single-failure-does-not-confirm",
+      "steps": [
+        {
+          "nowMs": 10000,
+          "rows": [
+            {
+              "EvidenceId": "Proxy:10000:www.amazon.com",
+              "Family": "DNS",
+              "Protocol": "DNS_UDP",
+              "Name": "Proxy",
+              "Provider": "Router",
+              "Scope": "RouterDNS",
+              "Status": "FAIL",
+              "Stage": "DNS_TIMEOUT",
+              "StartMonoMs": 9900,
+              "EndMonoMs": 10000,
+              "Data": {
+                "QueryName": "www.amazon.com",
+                "Addresses": [],
+                "IP": "192.168.50.1"
+              }
+            },
+            {
+              "EvidenceId": "CF:10000:www.amazon.com",
+              "Family": "DNS",
+              "Protocol": "DNS_UDP",
+              "Name": "CF",
+              "Provider": "Cloudflare",
+              "Scope": "ExternalDNS",
+              "Status": "OK",
+              "Stage": "NOERROR",
+              "StartMonoMs": 8900,
+              "EndMonoMs": 9000,
+              "Data": {
+                "QueryName": "www.amazon.com",
+                "Addresses": [
+                  "8.8.8.8"
+                ],
+                "IP": "8.8.8.8"
+              }
+            },
+            {
+              "EvidenceId": "Google:10000:www.amazon.com",
+              "Family": "DNS",
+              "Protocol": "DNS_UDP",
+              "Name": "Google",
+              "Provider": "Google",
+              "Scope": "ExternalDNS",
+              "Status": "OK",
+              "Stage": "NOERROR",
+              "StartMonoMs": 8900,
+              "EndMonoMs": 9000,
+              "Data": {
+                "QueryName": "www.amazon.com",
+                "Addresses": [
+                  "8.8.8.8"
+                ],
+                "IP": "8.8.8.8"
+              }
+            }
+          ],
+          "expectedCode": "ROUTER_DNS_PROXY",
+          "expectedActions": [
+            "PRETRIGGER"
+          ],
+          "expectedActive": null
+        },
+        {
+          "nowMs": 15000,
+          "rows": [
+            {
+              "EvidenceId": "CF:15000:www.amazon.com",
+              "Family": "DNS",
+              "Protocol": "DNS_UDP",
+              "Name": "CF",
+              "Provider": "Cloudflare",
+              "Scope": "ExternalDNS",
+              "Status": "OK",
+              "Stage": "NOERROR",
+              "StartMonoMs": 14900,
+              "EndMonoMs": 15000,
+              "Data": {
+                "QueryName": "www.amazon.com",
+                "Addresses": [
+                  "8.8.8.8"
+                ],
+                "IP": "8.8.8.8"
+              }
+            },
+            {
+              "EvidenceId": "Google:15000:www.amazon.com",
+              "Family": "DNS",
+              "Protocol": "DNS_UDP",
+              "Name": "Google",
+              "Provider": "Google",
+              "Scope": "ExternalDNS",
+              "Status": "OK",
+              "Stage": "NOERROR",
+              "StartMonoMs": 14900,
+              "EndMonoMs": 15000,
+              "Data": {
+                "QueryName": "www.amazon.com",
+                "Addresses": [
+                  "8.8.8.8"
+                ],
+                "IP": "8.8.8.8"
+              }
+            }
+          ],
+          "expectedCode": "ROUTER_DNS_PROXY",
+          "expectedActions": [],
+          "expectedActive": null
+        },
+        {
+          "nowMs": 15200,
+          "rows": [
+            {
+              "EvidenceId": "Proxy:15200:www.cloudflare.com",
+              "Family": "DNS",
+              "Protocol": "DNS_UDP",
+              "Name": "Proxy",
+              "Provider": "Router",
+              "Scope": "RouterDNS",
+              "Status": "OK",
+              "Stage": "NOERROR",
+              "StartMonoMs": 15100,
+              "EndMonoMs": 15200,
+              "Data": {
+                "QueryName": "www.cloudflare.com",
+                "Addresses": [
+                  "8.8.8.8"
+                ],
+                "IP": "192.168.50.1"
+              }
+            }
+          ],
+          "expectedCode": "HEALTHY",
+          "expectedActions": [],
+          "expectedActive": null
+        }
+      ]
+    },
+    {
+      "name": "persistent-failure-and-advancing-recovery",
+      "steps": [
+        {
+          "nowMs": 10000,
+          "rows": [
+            {
+              "EvidenceId": "Proxy:10000:www.amazon.com",
+              "Family": "DNS",
+              "Protocol": "DNS_UDP",
+              "Name": "Proxy",
+              "Provider": "Router",
+              "Scope": "RouterDNS",
+              "Status": "FAIL",
+              "Stage": "DNS_TIMEOUT",
+              "StartMonoMs": 9900,
+              "EndMonoMs": 10000,
+              "Data": {
+                "QueryName": "www.amazon.com",
+                "Addresses": [],
+                "IP": "192.168.50.1"
+              }
+            },
+            {
+              "EvidenceId": "CF:10000:www.amazon.com",
+              "Family": "DNS",
+              "Protocol": "DNS_UDP",
+              "Name": "CF",
+              "Provider": "Cloudflare",
+              "Scope": "ExternalDNS",
+              "Status": "OK",
+              "Stage": "NOERROR",
+              "StartMonoMs": 8900,
+              "EndMonoMs": 9000,
+              "Data": {
+                "QueryName": "www.amazon.com",
+                "Addresses": [
+                  "8.8.8.8"
+                ],
+                "IP": "8.8.8.8"
+              }
+            },
+            {
+              "EvidenceId": "Google:10000:www.amazon.com",
+              "Family": "DNS",
+              "Protocol": "DNS_UDP",
+              "Name": "Google",
+              "Provider": "Google",
+              "Scope": "ExternalDNS",
+              "Status": "OK",
+              "Stage": "NOERROR",
+              "StartMonoMs": 8900,
+              "EndMonoMs": 9000,
+              "Data": {
+                "QueryName": "www.amazon.com",
+                "Addresses": [
+                  "8.8.8.8"
+                ],
+                "IP": "8.8.8.8"
+              }
+            }
+          ],
+          "expectedCode": "ROUTER_DNS_PROXY",
+          "expectedActions": [
+            "PRETRIGGER"
+          ],
+          "expectedActive": null
+        },
+        {
+          "nowMs": 15000,
+          "rows": [
+            {
+              "EvidenceId": "Proxy:15000:www.amazon.com",
+              "Family": "DNS",
+              "Protocol": "DNS_UDP",
+              "Name": "Proxy",
+              "Provider": "Router",
+              "Scope": "RouterDNS",
+              "Status": "FAIL",
+              "Stage": "DNS_TIMEOUT",
+              "StartMonoMs": 14900,
+              "EndMonoMs": 15000,
+              "Data": {
+                "QueryName": "www.amazon.com",
+                "Addresses": [],
+                "IP": "192.168.50.1"
+              }
+            },
+            {
+              "EvidenceId": "CF:15000:www.amazon.com",
+              "Family": "DNS",
+              "Protocol": "DNS_UDP",
+              "Name": "CF",
+              "Provider": "Cloudflare",
+              "Scope": "ExternalDNS",
+              "Status": "OK",
+              "Stage": "NOERROR",
+              "StartMonoMs": 14900,
+              "EndMonoMs": 15000,
+              "Data": {
+                "QueryName": "www.amazon.com",
+                "Addresses": [
+                  "8.8.8.8"
+                ],
+                "IP": "8.8.8.8"
+              }
+            },
+            {
+              "EvidenceId": "Google:15000:www.amazon.com",
+              "Family": "DNS",
+              "Protocol": "DNS_UDP",
+              "Name": "Google",
+              "Provider": "Google",
+              "Scope": "ExternalDNS",
+              "Status": "OK",
+              "Stage": "NOERROR",
+              "StartMonoMs": 14900,
+              "EndMonoMs": 15000,
+              "Data": {
+                "QueryName": "www.amazon.com",
+                "Addresses": [
+                  "8.8.8.8"
+                ],
+                "IP": "8.8.8.8"
+              }
+            }
+          ],
+          "expectedCode": "ROUTER_DNS_PROXY",
+          "expectedActions": [
+            "INCIDENT"
+          ],
+          "expectedActive": "ROUTER_DNS_PROXY"
+        },
+        {
+          "nowMs": 20000,
+          "rows": [
+            {
+              "EvidenceId": "Proxy:20000:www.amazon.com",
+              "Family": "DNS",
+              "Protocol": "DNS_UDP",
+              "Name": "Proxy",
+              "Provider": "Router",
+              "Scope": "RouterDNS",
+              "Status": "OK",
+              "Stage": "NOERROR",
+              "StartMonoMs": 19900,
+              "EndMonoMs": 20000,
+              "Data": {
+                "QueryName": "www.amazon.com",
+                "Addresses": [
+                  "8.8.8.8"
+                ],
+                "IP": "192.168.50.1"
+              }
+            },
+            {
+              "EvidenceId": "CF:20000:www.amazon.com",
+              "Family": "DNS",
+              "Protocol": "DNS_UDP",
+              "Name": "CF",
+              "Provider": "Cloudflare",
+              "Scope": "ExternalDNS",
+              "Status": "OK",
+              "Stage": "NOERROR",
+              "StartMonoMs": 19900,
+              "EndMonoMs": 20000,
+              "Data": {
+                "QueryName": "www.amazon.com",
+                "Addresses": [
+                  "8.8.8.8"
+                ],
+                "IP": "8.8.8.8"
+              }
+            },
+            {
+              "EvidenceId": "Google:20000:www.amazon.com",
+              "Family": "DNS",
+              "Protocol": "DNS_UDP",
+              "Name": "Google",
+              "Provider": "Google",
+              "Scope": "ExternalDNS",
+              "Status": "OK",
+              "Stage": "NOERROR",
+              "StartMonoMs": 19900,
+              "EndMonoMs": 20000,
+              "Data": {
+                "QueryName": "www.amazon.com",
+                "Addresses": [
+                  "8.8.8.8"
+                ],
+                "IP": "8.8.8.8"
+              }
+            }
+          ],
+          "expectedCode": "HEALTHY",
+          "expectedActions": [],
+          "expectedActive": "ROUTER_DNS_PROXY"
+        },
+        {
+          "nowMs": 26000,
+          "rows": [
+            {
+              "EvidenceId": "Proxy:26000:www.amazon.com",
+              "Family": "DNS",
+              "Protocol": "DNS_UDP",
+              "Name": "Proxy",
+              "Provider": "Router",
+              "Scope": "RouterDNS",
+              "Status": "OK",
+              "Stage": "NOERROR",
+              "StartMonoMs": 25900,
+              "EndMonoMs": 26000,
+              "Data": {
+                "QueryName": "www.amazon.com",
+                "Addresses": [
+                  "8.8.8.8"
+                ],
+                "IP": "192.168.50.1"
+              }
+            },
+            {
+              "EvidenceId": "CF:26000:www.amazon.com",
+              "Family": "DNS",
+              "Protocol": "DNS_UDP",
+              "Name": "CF",
+              "Provider": "Cloudflare",
+              "Scope": "ExternalDNS",
+              "Status": "OK",
+              "Stage": "NOERROR",
+              "StartMonoMs": 25900,
+              "EndMonoMs": 26000,
+              "Data": {
+                "QueryName": "www.amazon.com",
+                "Addresses": [
+                  "8.8.8.8"
+                ],
+                "IP": "8.8.8.8"
+              }
+            },
+            {
+              "EvidenceId": "Google:26000:www.amazon.com",
+              "Family": "DNS",
+              "Protocol": "DNS_UDP",
+              "Name": "Google",
+              "Provider": "Google",
+              "Scope": "ExternalDNS",
+              "Status": "OK",
+              "Stage": "NOERROR",
+              "StartMonoMs": 25900,
+              "EndMonoMs": 26000,
+              "Data": {
+                "QueryName": "www.amazon.com",
+                "Addresses": [
+                  "8.8.8.8"
+                ],
+                "IP": "8.8.8.8"
+              }
+            }
+          ],
+          "expectedCode": "HEALTHY",
+          "expectedActions": [
+            "RECOVERY"
+          ],
+          "expectedActive": null
+        }
+      ]
+    }
+  ]
+}

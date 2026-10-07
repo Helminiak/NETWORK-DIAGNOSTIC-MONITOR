@@ -1,0 +1,24 @@
+# Machine configuration and operational evidence belong outside source history.
+/local/
+/logs/
+/dist/
+/artifacts/
+**/Fatal_Error.log
+**/Self_Test_Result.log
+*.etl
+*.pcap
+*.pcapng
+*.csv
+*.zip
+*.dpapi
+*.key
+*.pem
+.env
+.env.*
+__pycache__/
+node_modules/
+/verification/network-status-*.png
+/verification/web-status-tests.txt
+/verification/selftestfix/failure-injected-*
+/verification/selftestfix/failure-reporting-tests.txt
+/verification/selftestfix/failure-reporting-result.json

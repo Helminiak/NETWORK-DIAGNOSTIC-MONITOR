@@ -1,0 +1,71 @@
+const fs=require('fs'),path=require('path'),net=require('net'),os=require('os'),assert=require('assert'),{spawn}=require('child_process');
+const {chromium}=process.env.NETDIAG_TEST_NODE_MODULES?require(process.env.NETDIAG_TEST_NODE_MODULES+'/playwright'):require('playwright');
+const root=path.resolve(__dirname,'..'),port=19763,url='http://127.0.0.1:'+port;
+const pwsh=process.env.NETDIAG_TEST_PWSH, chrome=process.env.NETDIAG_TEST_CHROME;
+if(!pwsh||!chrome) throw Error('Set NETDIAG_TEST_PWSH and NETDIAG_TEST_CHROME to installed local test runtimes.');
+const fixture=fs.mkdtempSync(path.join(os.tmpdir(),'netdiag-web-')),file=path.join(fixture,'status.json');
+const historical=JSON.parse(fs.readFileSync(path.join(__dirname,'historical-status.json'),'utf8'));
+fs.writeFileSync(file,JSON.stringify(historical));
+let child,browser,count=0,stderr='',stdout='',startupError='',checks=[];
+function pass(name,condition){assert(condition,name);checks.push('PASS '+name);console.log('PASS '+name);count++;}
+const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+async function raw(request){return new Promise((resolve,reject)=>{const s=net.connect(port,'127.0.0.1');let out='';s.setTimeout(4500);s.on('connect',()=>s.end(request));s.on('data',b=>out+=b);s.on('end',()=>resolve(out));s.on('error',reject);s.on('timeout',()=>{s.destroy();reject(Error('timeout'));});});}
+(async()=>{try{
+ child=spawn(pwsh,['-NoLogo','-NoProfile','-File',path.join(__dirname,'fixtures','Serve_Status_Fixture.ps1'),'-StatusFile',file,'-Port',String(port),'-DurationSec','90'],{env:{...process.env,POWERSHELL_TELEMETRY_OPTOUT:'1',POWERSHELL_UPDATECHECK:'Off'}});
+ child.stderr.on('data',b=>stderr+=b);child.stdout.on('data',b=>stdout+=b);child.on('error',e=>startupError=e.message);
+ // Cold PowerShell/Add-Type startup varies by runner. Bound both startup and
+ // each HTTP attempt, and preserve the real reason instead of an empty timeout.
+ let ready=false,lastAttempt='No HTTP response';const deadline=Date.now()+30000;
+ while(Date.now()<deadline){
+  if(startupError || child.exitCode!==null) throw Error('Fixture startup failed: '+startupError+' exit='+child.exitCode+'\n'+stdout+'\n'+stderr);
+  try{const r=await fetch(url+'/api/status',{signal:AbortSignal.timeout(2000)});const initial=await r.json();lastAttempt='HTTP '+r.status+' '+JSON.stringify(initial).slice(0,500);if(r.ok && initial.network){ready=true;break;}}catch(e){lastAttempt=e.stack||String(e);}
+  await wait(100);
+ }
+ pass('Actual C# loopback server starts: '+(ready?'ready':lastAttempt+'\n'+stdout+'\n'+stderr),ready);
+ const response=await fetch(url+'/api/status'),state=await response.json();
+ pass('Synthetic historical status JSON served with monotonic snapshot age',state.schemaVersion===1 && state.network.code==='DNS_ANSWER_REDIRECTION' && state.snapshotAgeMs>=0);
+ pass('Read-only headers prevent caching, embedding and script injection',response.headers.get('cache-control')==='no-store' && response.headers.get('x-frame-options')==='DENY' && response.headers.get('content-security-policy').includes("script-src 'self'"));
+ pass('No cross-origin read permission',!response.headers.has('access-control-allow-origin'));
+ pass('POST API rejected',(await fetch(url+'/api/status',{method:'POST'})).status===405);
+ pass('Unknown route rejected',(await fetch(url+'/not-a-route')).status===404);
+ pass('Traversal request rejected',(await raw('GET /../Monitor_Config.psd1 HTTP/1.1\r\nHost: 127.0.0.1:'+port+'\r\n\r\n')).startsWith('HTTP/1.1 404'));
+ pass('DNS rebinding Host rejected',(await raw('GET /api/status HTTP/1.1\r\nHost: attacker.example:'+port+'\r\n\r\n')).startsWith('HTTP/1.1 403'));
+ pass('Duplicate Host rejected',(await raw('GET /api/status HTTP/1.1\r\nHost: 127.0.0.1:'+port+'\r\nHost: localhost:'+port+'\r\n\r\n')).startsWith('HTTP/1.1 403'));
+ pass('Oversized request headers rejected',(await raw('GET / HTTP/1.1\r\nHost: 127.0.0.1:'+port+'\r\nX-Large: '+'x'.repeat(8200)+'\r\n\r\n')).startsWith('HTTP/1.1 431'));
+ const incomplete=net.connect(port,'127.0.0.1');incomplete.write('GET / HTTP/1.1\r\n');await wait(1250);incomplete.destroy();
+ const afterIncomplete=await fetch(url+'/api/status');await afterIncomplete.arrayBuffer();
+ pass('Incomplete client timeout leaves server available',afterIncomplete.ok);
+ browser=await chromium.launch({headless:true,executablePath:chrome,args:['--no-sandbox','--disable-background-networking','--disable-component-update','--disable-sync','--no-first-run']});
+ const page=await browser.newPage({viewport:{width:1440,height:1100},timezoneId:'America/New_York'}),errors=[],external=[];
+ page.on('pageerror',e=>errors.push(e.message));page.on('request',r=>{if(!r.url().startsWith(url))external.push(r.url());});
+ await page.goto(url);await page.waitForFunction(()=>document.getElementById('assessment-title').textContent.includes('private addresses'));
+ pass('Browser renders the synthetic DNS integrity anomaly',(await page.locator('#dns-detail').textContent()).includes('flagged'));
+ pass('Older archives do not manufacture monitor process measurements',(await page.locator('#monitor-memory').textContent())==='Unmeasured or stale');
+ pass('Historical replay is visibly labelled',(await page.locator('#connection').textContent()).includes('Historical'));
+ pass('Unresolved shutdown remains visible',(await page.locator('#incident-detail').textContent()).includes('unresolved'));
+ await page.screenshot({path:path.join(__dirname,'network-status-desktop.png'),fullPage:true});
+ await page.locator('#filter').selectOption('DNS');
+ pass('DNS filter shows answers and excludes TCP443',(await page.locator('#probe-rows').textContent()).includes('DNS_UDP') && !(await page.locator('#probe-rows').textContent()).includes('TCP443'));
+ await page.locator('#filter').selectOption('ALL');
+ await page.setViewportSize({width:390,height:844});await page.screenshot({path:path.join(__dirname,'network-status-mobile.png'),fullPage:true});
+ pass('Mobile layout has no page-wide horizontal overflow',await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth));
+ const live=structuredClone(historical);live.lifecycle='RUNNING';live.sensor.name='TEST_UI_FIXTURE';live.generatedUtc=new Date().toISOString();live.monitor.probes='OK';live.monitor.resources={status:'OK',workingSetBytes:67108864,cpuPercentOneCore:12.5};live.sensor.linkSpeed='613 Mbps';
+ live.probes.push(...[['Cloudflare','1.1.1.1'],['Google','8.8.8.8']].map(([provider,ip])=>({id:'TEST_PIN_'+provider,protocol:'TCP443',name:'TEST_PIN_'+provider,provider,scope:'Public',status:'OK',wireStatus:'OK',stage:'OK',ageMs:0,ip,resolutionMode:'PINNED_IP',publicDestination:true,latencyMs:1,addresses:[],answerPolicy:''})));
+ live.probes[0].name='<img src=x onerror=alert(1)>';fs.writeFileSync(file,JSON.stringify(live));
+ await page.waitForFunction(()=>document.getElementById('connection').textContent.startsWith('Live'));
+ pass('New RAM snapshot updates the browser without a reload',(await page.locator('#sensor-name').textContent())==='TEST_UI_FIXTURE');
+ pass('Process resources render in the live status screen',(await page.locator('#monitor-memory').textContent()).includes('64.0 MiB') && (await page.locator('#monitor-cpu').textContent()).includes('12.5%'));
+ pass('Latest NIC PHY measurement renders in the browser',(await page.locator('#link-speed').textContent()).includes('613 Mbps'));
+ pass('Passing pinned TCP controls show reachability while DNS integrity fault remains visible',(await page.locator('#upstream-badge').textContent())==='Public TCP reachable' && (await page.locator('#assessment-title').textContent()).includes('private addresses'));
+ pass('Untrusted probe labels remain plain text',(await page.locator('#probe-rows img').count())===0 && (await page.locator('#probe-rows').textContent()).includes('<img src=x'));
+ await page.waitForFunction(()=>document.getElementById('connection').textContent.includes('Stale'),{timeout:16000});
+ pass('Frozen publisher becomes stale despite a responding web server',(await page.locator('#gateway-status').textContent())==='Unknown');
+ pass('Missing interface throughput is not reported as zero',(await page.locator('#traffic-status').textContent())==='— / —');
+ child.kill('SIGTERM');await page.waitForFunction(()=>document.getElementById('connection').textContent.includes('Unavailable'));
+ pass('Offline process resource readings remain unknown',(await page.locator('#monitor-memory').textContent())==='Unmeasured or stale');
+ pass('Stopped backend visibly becomes unavailable',(await page.locator('#probe-status').textContent())==='Unavailable');
+ pass('Unresolved incident survives loss of the backend',(await page.locator('#incident-detail').textContent()).includes('No recovery'));
+ pass('Page has no JavaScript errors',errors.length===0);pass('Page loads no remote assets',external.length===0);
+ checks.push('WEB / GUI PASSED: '+count+' checks. Actual C# server and headless Chromium; synthetic historical/stale/injection fixtures.');console.log(checks.at(-1));
+ }finally{if(browser)await browser.close();if(child&&child.exitCode===null)child.kill('SIGTERM');fs.rmSync(fixture,{recursive:true,force:true});fs.writeFileSync(path.join(__dirname,'web-status-tests.txt'),checks.join('\n')+'\nFixture stdout: '+stdout+'\nFixture stderr: '+stderr+'\n'+(startupError?'Fixture startup error: '+startupError+'\n':''));}
+})().catch(e=>{console.error(e);fs.appendFileSync(path.join(__dirname,'web-status-tests.txt'),'Test failure: '+(e.stack||String(e))+'\n');process.exitCode=1;});

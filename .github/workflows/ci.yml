@@ -1,0 +1,127 @@
+name: Candidate checks
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: candidate-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  POWERSHELL_TELEMETRY_OPTOUT: '1'
+  POWERSHELL_UPDATECHECK: 'Off'
+
+jobs:
+  windows:
+    name: Windows PowerShell 5.1
+    runs-on: windows-2022
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Native runtime, self-test, coordinator and state vectors
+        shell: powershell
+        run: .\tools\Test-Candidate.ps1 -RequireWindows51
+      - name: Failed refusal check retains native Windows diagnostic evidence
+        shell: powershell
+        run: python verification/selftestfix/test_failure_reporting.py "$((Get-Process -Id $PID).Path)"
+      - name: Verify extracted candidate under Windows PowerShell 5.1
+        shell: powershell
+        run: |
+          python tools/build_release.py --output-dir dist/windows
+          if ($LASTEXITCODE -ne 0) { throw 'Windows candidate build failed.' }
+          python tools/verify_release.py dist/windows/Network_Diagnostic_Monitor_V2_12_RC3_1_1.zip
+          if ($LASTEXITCODE -ne 0) { throw 'Windows candidate manifest failed.' }
+          $extracted = Join-Path $env:RUNNER_TEMP 'Extracted candidate with spaces'
+          Expand-Archive -LiteralPath dist/windows/Network_Diagnostic_Monitor_V2_12_RC3_1_1.zip -DestinationPath $extracted
+          $candidate = Join-Path $extracted 'Network_Diagnostic_Monitor_V2_12_RC3_1_1'
+          & powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File (Join-Path $candidate 'Network_Diagnostic_V2_12_RC3.ps1') -SelfTest 2>&1 | Tee-Object -FilePath artifacts/extracted-selftest.txt
+          $candidateExit = $LASTEXITCODE
+          Copy-Item -LiteralPath (Join-Path $candidate 'Self_Test_Result.log') -Destination artifacts/extracted-Self_Test_Result.log
+          if ($candidateExit -ne 0) { throw ('Extracted candidate self-test failed with exit '+$candidateExit) }
+      - name: Preserve test evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: windows-51-evidence
+          path: |
+            artifacts/
+            dist/windows/
+            Self_Test_Result.log
+            Fatal_Error.log
+            verification/selftestfix/failure-*
+          if-no-files-found: error
+          retention-days: 30
+  portable:
+    name: Portable PowerShell
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Portable suite and declared integration adapters
+        shell: pwsh
+        run: ./tools/Test-Candidate.ps1
+      - name: Deliberately failed refusal check retains diagnostic evidence
+        shell: bash
+        run: python3 verification/selftestfix/test_failure_reporting.py "$(command -v pwsh)"
+      - name: Preserve test evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: portable-evidence
+          path: |
+            artifacts/
+            Self_Test_Result.log
+            Fatal_Error.log
+            verification/selftestfix/failure-*
+          if-no-files-found: error
+          retention-days: 30
+  web-package:
+    name: Web and package
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Install locked browser test dependencies
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+          python3 -m pip install -r verification/requirements.txt
+      - name: Synthetic status-schema and actual server/browser checks
+        shell: bash
+        run: |
+          export NETDIAG_TEST_PWSH="$(command -v pwsh)"
+          export NETDIAG_TEST_CHROME="$(node -e 'process.stdout.write(require("playwright").chromium.executablePath())')"
+          python3 verification/validate_evidence.py
+          npm run test:web
+      - name: Build twice, compare bytes and verify manifest
+        run: |
+          python3 tools/build_release.py --output-dir dist/first
+          python3 tools/build_release.py --output-dir dist/second
+          python3 tools/verify_release.py dist/first/Network_Diagnostic_Monitor_V2_12_RC3_1_1.zip --compare dist/second/Network_Diagnostic_Monitor_V2_12_RC3_1_1.zip
+      - name: Preserve candidate package and browser evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: rc3.1.1-candidate
+          path: |
+            dist/first/
+            verification/network-status-*.png
+            verification/web-status-tests.txt
+          if-no-files-found: error
+          retention-days: 30

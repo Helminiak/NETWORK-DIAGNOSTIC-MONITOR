@@ -1,0 +1,193 @@
+{
+  "schemaVersion": 1,
+  "programVersion": "V2.12-RC3.1.1",
+  "generatedUtc": "2020-01-01T00:00:00Z",
+  "monoMs": 10000,
+  "lifecycle": "HISTORICAL",
+  "sensor": {
+    "name": "SYNTHETIC_TEST_SENSOR",
+    "role": "GENERIC",
+    "adapter": "SYNTHETIC_INTERFACE",
+    "linkSpeed": "1000 Mbps",
+    "gateway": "192.0.2.1",
+    "systemDns": "192.0.2.1",
+    "deployment": "SYNTHETIC_HISTORICAL_FIXTURE"
+  },
+  "network": {
+    "code": "DNS_ANSWER_REDIRECTION",
+    "severity": "CRITICAL",
+    "text": "Multiple public names return nonpublic addresses through multiple resolvers. Interception, captive portal or deliberate filtering is possible; source device and WAN availability are unproven.",
+    "activeIncident": "DNS_ANSWER_REDIRECTION",
+    "incidentCount": 1,
+    "scope": "SENSOR_PATH",
+    "recovered": false,
+    "unresolvedAtStop": true,
+    "answerAnomalyCount": 2,
+    "returnedAddresses": [
+      "10.0.0.1"
+    ]
+  },
+  "monitor": {
+    "probes": "HISTORICAL_REPLAY",
+    "powerGuard": "HISTORICAL",
+    "gapCount": 0,
+    "blindMs": 0,
+    "storageDropped": 0,
+    "ringExpired": null,
+    "ringCapacityEvicted": null,
+    "webStatus": "LOCAL_READ_ONLY"
+  },
+  "topology": {
+    "nodes": [
+      {
+        "id": "sensor",
+        "label": "SYNTHETIC_TEST_SENSOR",
+        "kind": "sensor",
+        "address": "",
+        "status": "STOPPED",
+        "basis": "Sensor process and scheduled probes"
+      },
+      {
+        "id": "Default-Gateway",
+        "label": "Default-Gateway",
+        "kind": "Gateway",
+        "address": "192.0.2.1",
+        "status": "OK",
+        "basis": "ICMP reachability from this sensor; forwarding health unproven"
+      },
+      {
+        "id": "upstream",
+        "label": "Internet path",
+        "kind": "upstream",
+        "address": "",
+        "status": "UNDETERMINED",
+        "basis": "Single-sensor path; router and ISP ownership unproven"
+      }
+    ],
+    "edges": [
+      {
+        "from": "sensor",
+        "to": "Default-Gateway",
+        "basis": "OBSERVED_ICMP_PATH"
+      },
+      {
+        "from": "Default-Gateway",
+        "to": "upstream",
+        "basis": "CONFIGURED_UPSTREAM_PATH_UNPROVEN"
+      }
+    ],
+    "inventoryComplete": false,
+    "lanClientCount": null,
+    "routerWanMeasured": false
+  },
+  "traffic": {
+    "scope": "SENSOR_INTERFACE",
+    "rxMbps": 0.007,
+    "txMbps": 0.009,
+    "counterState": "DELTA",
+    "routerWanRxMbps": null,
+    "routerWanTxMbps": null,
+    "history": []
+  },
+  "probeRowsOmitted": 0,
+  "probes": [
+    {
+      "id": "SYNTHETIC_1",
+      "family": "DNS",
+      "protocol": "DNS_UDP",
+      "name": "Fixture-1",
+      "provider": "FixtureProvider-1",
+      "scope": "ExternalDNS",
+      "status": "OK",
+      "wireStatus": "OK",
+      "stage": "NOERROR",
+      "latencyMs": null,
+      "ageMs": 100,
+      "ip": "192.0.2.53",
+      "queryName": "example.com",
+      "addresses": [
+        "10.0.0.1"
+      ],
+      "answerPolicy": "PUBLIC_NAME_NONPUBLIC_ANSWER",
+      "resolutionMode": null,
+      "publicDestination": true,
+      "signature": "",
+      "httpMethod": "",
+      "measurement": "SYNTHETIC_TEST_FIXTURE"
+    },
+    {
+      "id": "SYNTHETIC_2",
+      "family": "DNS",
+      "protocol": "DNS_UDP",
+      "name": "Fixture-2",
+      "provider": "FixtureProvider-2",
+      "scope": "ExternalDNS",
+      "status": "OK",
+      "wireStatus": "OK",
+      "stage": "NOERROR",
+      "latencyMs": null,
+      "ageMs": 100,
+      "ip": "192.0.2.53",
+      "queryName": "example.com",
+      "addresses": [
+        "10.0.0.1"
+      ],
+      "answerPolicy": "PUBLIC_NAME_NONPUBLIC_ANSWER",
+      "resolutionMode": null,
+      "publicDestination": true,
+      "signature": "",
+      "httpMethod": "",
+      "measurement": "SYNTHETIC_TEST_FIXTURE"
+    },
+    {
+      "id": "SYNTHETIC_3",
+      "family": "TCP443",
+      "protocol": "TCP443",
+      "name": "Fixture-3",
+      "provider": "FixtureProvider-3",
+      "scope": "Public",
+      "status": "FAIL",
+      "wireStatus": "FAIL",
+      "stage": "TCP_TIMEOUT",
+      "latencyMs": null,
+      "ageMs": 100,
+      "ip": "198.51.100.10",
+      "queryName": "example.com",
+      "addresses": [],
+      "answerPolicy": "PUBLIC_NAME_NONPUBLIC_ANSWER",
+      "resolutionMode": null,
+      "publicDestination": false,
+      "signature": "",
+      "httpMethod": "",
+      "measurement": "SYNTHETIC_TEST_FIXTURE"
+    },
+    {
+      "id": "SYNTHETIC_4",
+      "family": "HTTPS",
+      "protocol": "HTTPS",
+      "name": "Fixture-4",
+      "provider": "FixtureProvider-4",
+      "scope": "Public",
+      "status": "FAIL",
+      "wireStatus": "FAIL",
+      "stage": "TCP_TIMEOUT",
+      "latencyMs": null,
+      "ageMs": 100,
+      "ip": "198.51.100.10",
+      "queryName": "example.com",
+      "addresses": [],
+      "answerPolicy": "",
+      "resolutionMode": null,
+      "publicDestination": false,
+      "signature": "",
+      "httpMethod": "HEAD",
+      "measurement": "SYNTHETIC_TEST_FIXTURE"
+    }
+  ],
+  "scheduler": [],
+  "recentEvents": [],
+  "limitations": [
+    "Synthetic fixture; not native operational evidence.",
+    "Complete LAN inventory and router WAN counters are unmeasured."
+  ]
+}
