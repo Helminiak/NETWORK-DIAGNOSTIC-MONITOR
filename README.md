@@ -123,3 +123,9 @@ Commit sanitized logs and synthetic fixtures when test evidence is needed.
 ## Release requirement
 
 A release candidate should be reproducible from source and should include automated verification of the parser, configuration loading, startup/shutdown behavior, expected network-failure classification, and packaging integrity before it is tagged.
+
+## Agent entrypoints and license
+
+Before making changes, read [AGENTS.md](AGENTS.md), [the multi-LLM workflow](docs/MULTI_LLM_WORKFLOW.md) and the assigned issue. Use an owned task branch, record the full source commit and validate the actual repository state before handoff.
+
+License: not yet selected by this governance bootstrap. Preserve existing copyright and any existing license or UNLICENSED declarations; public visibility is not an open-source license.
