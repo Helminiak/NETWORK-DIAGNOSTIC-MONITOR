@@ -271,7 +271,8 @@ function Invoke-CurlTiming {
     # HEAD measures headers/TTFB without downloading full public home pages.
     # DoH endpoint sampling keeps GET because its API is not a HEAD transaction.
     $requestOptions=if($Doh){'--max-filesize 65536'}else{'--head'}
-    $process.StartInfo.Arguments=($requestOptions+' '+('--silent --show-error --ipv4 --noproxy "*" --output NUL --connect-timeout {0} --max-time {0} --write-out "{1}" "{2}"' -f $TimeoutSec,$format,$Url))
+    $nullDevice=if([Environment]::OSVersion.Platform -eq [PlatformID]::Win32NT){'NUL'}else{'/dev/null'}
+    $process.StartInfo.Arguments=($requestOptions+' '+('--silent --show-error --ipv4 --noproxy "*" --output "{3}" --connect-timeout {0} --max-time {0} --write-out "{1}" "{2}"' -f $TimeoutSec,$format,$Url,$nullDevice))
     $process.StartInfo.UseShellExecute=$false;$process.StartInfo.CreateNoWindow=$true
     $process.StartInfo.RedirectStandardOutput=$true;$process.StartInfo.RedirectStandardError=$true
     $launched=$false
